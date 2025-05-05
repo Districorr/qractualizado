@@ -2,18 +2,23 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>QR Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Escáner de QR</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container">
     <h1>Escáner de QR</h1>
+    <label for="camera-select">Seleccionar cámara:</label>
+    <select id="camera-select"></select>
+
     <div id="reader"></div>
     <div id="result-container">
       <p><strong>Resultado:</strong></p>
       <textarea id="qr-result" readonly></textarea>
+      <div id="parsed-data"></div>
       <button id="copy-btn">Copiar</button>
+      <button id="export-btn">Exportar a CSV</button>
     </div>
   </div>
   <script src="html5-qrcode.min.js"></script>
