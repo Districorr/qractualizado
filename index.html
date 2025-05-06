@@ -1,60 +1,94 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Escáner GS1 y Códigos de Barras - v2</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Escáner de GS1 y Barras</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="html5-qrcode.min.js"></script>
+  <style>
+    body.light { background: #f4faff; color: #003049; }
+    body.dark { background: #1a1a1a; color: #ffffff; }
+    .tabs { display: flex; justify-content: center; margin-bottom: 1em; }
+    .tab { padding: 0.5em 1em; cursor: pointer; background: #0077b6; color: white; margin-right: 5px; border-radius: 5px; }
+    .tab.active { background: #023e8a; }
+    .section { display: none; padding: 1em; border: 2px solid #ccc; border-radius: 10px; }
+    .section.active { display: block; }
+    #scanner-preview { width: 100%; max-width: 400px; margin: auto; }
+    .dark-mode-toggle { position: absolute; top: 10px; right: 10px; cursor: pointer; }
+  </style>
 </head>
-<body>
-  <div class="container">
-    <h1>Escáner de GS1 y Barras</h1>
-    <div class="controls">
-      <label for="provider-select">Proveedor:</label>
-      <select id="provider-select">
-        <option value="">--Seleccione--</option>
-        <option value="Proveedor A">Proveedor A</option>
-        <option value="Proveedor B">Proveedor B</option>
-      </select>
-      <label for="camera-select">Cámara:</label>
-      <select id="camera-select"></select>
-      <button id="toggle-scan-mode">Modo QR</button>
-      <button id="filter-btn">Filtrar Fecha</button>
-      <input type="date" id="filter-from" />
-      <input type="date" id="filter-to" />
-      <button id="export-btn">Exportar CSV</button>
-      <button id="export-json-btn">Exportar JSON</button>
-      <button id="export-xlsx-btn">Exportar XLSX</button>
-      <button id="print-labels-btn">Imprimir Etiquetas</button>
-      <button id="stats-btn">Ver Estadísticas</button>
-      <div class="field-selector">
-        <span>Campos a exportar:</span>
-        <label><input type="checkbox" value="01" checked>GTIN</label>
-        <label><input type="checkbox" value="10" checked>Lote</label>
-        <label><input type="checkbox" value="17" checked>Vencimiento</label>
-        <label><input type="checkbox" value="21" checked>Serie</label>
-        <label><input type="checkbox" value="22" checked>Código</label>
-        <label><input type="checkbox" value="240" checked>Referencia</label>
-      </div>
-    </div>
-    <div id="notification"></div>
-    <div id="reader"></div>
-    <div id="result-container">
-      <textarea id="qr-result" readonly placeholder="Resultado"></textarea>
-      <div id="parsed-data"></div>
-    </div>
-    <div id="stats-container" class="hidden">
-      <h2>Estadísticas de Escaneos</h2>
-      <canvas id="stats-chart"></canvas>
-    </div>
+<body class="light">
+  <div class="dark-mode-toggle">🌓</div>
+
+  <h2 style="text-align:center">Escáner de GS1 y Barras</h2>
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('scan')">📷 Escanear</div>
+    <div class="tab" onclick="switchTab('records')">📁 Registros</div>
   </div>
-  <!-- Libraries -->
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-  <script src="script.js"></script>
+
+  <!-- Sección Escaner -->
+  <div id="scan" class="section active">
+    <div id="scanner-preview"></div>
+    <p id="status">Esperando código...</p>
+    <p><strong>Proveedor detectado:</strong> <span id="proveedor-auto">---</span></p>
+    <p><strong>Resultado:</strong></p>
+    <textarea id="resultado" rows="4" style="width:100%"></textarea>
+    <div id="captura-container"></div>
+  </div>
+
+  <!-- Sección Registros anteriores -->
+  <div id="records" class="section">
+    <h3>Buscar registros anteriores</h3>
+    <input type="text" placeholder="Buscar por lote, serie o proveedor..." style="width:100%;padding:0.5em">
+    <div id="tabla-registros">(aquí aparecerá la tabla)</div>
+  </div>
+
+  <script>
+    const scanner = new Html5Qrcode("scanner-preview");
+
+    async function startScanner() {
+      const devices = await Html5Qrcode.getCameras();
+      const backCam = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('trasera')) || devices[0];
+
+      scanner.start(
+        backCam.id,
+        { fps: 10, qrbox: 250, facingMode: 'environment' },
+        qrCodeMessage => {
+          document.getElementById("resultado").value = qrCodeMessage;
+          document.getElementById("status").textContent = "Código detectado ✅";
+
+          // Detección de proveedor
+          let proveedor = qrCodeMessage.includes("BIO") ? "BIOPROTECE" : qrCodeMessage.includes("SAI") ? "SAI" : "No identificado";
+          document.getElementById("proveedor-auto").textContent = proveedor;
+
+          // Captura visual del canvas
+          html2canvas(document.getElementById("scanner-preview")).then(canvas => {
+            document.getElementById("captura-container").innerHTML = "";
+            document.getElementById("captura-container").appendChild(canvas);
+          });
+        },
+        errorMsg => {
+          document.getElementById("status").textContent = "Escaneando...";
+        }
+      );
+    }
+
+    startScanner();
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+      document.querySelector(`#${tabId}`).classList.add('active');
+      document.querySelector(`.tab[onclick*='${tabId}']`).classList.add('active');
+    }
+
+    // Modo oscuro
+    document.querySelector('.dark-mode-toggle').onclick = () => {
+      document.body.classList.toggle('dark');
+      document.body.classList.toggle('light');
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </body>
 </html>
