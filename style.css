@@ -281,3 +281,8 @@ body.dark .gs1-field strong {
 body.dark .gs1-field span.expired {
   color: #ff6666; /* Rojo más brillante en modo oscuro */
 }
+#start-scan-button {
+    margin: 1em auto;
+    padding: 10px 20px;
+    font-size: 1.1em;
+}
