@@ -10,6 +10,11 @@ let autoClearTimeout = null; // Referencia al timeout para auto-limpieza
 // ==================================================================
 //                 Referencias a Elementos del DOM
 // ==================================================================
+const startScanButton = document.getElementById('start-scan-button');
+const stopScanButton = document.getElementById('stop-scan-button');
+const scannerControlsDiv = document.getElementById('scanner-controls'); // Contenedor principal
+const scannerActiveControlsDiv = document.getElementById('scanner-active-controls'); // Contenedor de controles activos
+
 const cameraSelector = document.getElementById('camera-selector');
 const scannerPreview = document.getElementById('scanner-preview');
 const cameraStatus = document.getElementById('camera-status');
@@ -292,30 +297,31 @@ function detectarProveedorMejorado(textoCrudo, parsedGS1) {
 
 
 // --- Inicialización del Escáner ---
+// ESTA FUNCIÓN AHORA SOLO PREPARA, NO INICIA EL ESCÁNER DIRECTAMENTE
 async function initScanner() {
-    cameraStatus.textContent = '';
+    cameraStatus.textContent = ''; // Limpiar estado previo
+    statusElement.textContent = "Buscando cámaras...";
+
     try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-             cameraStatus.textContent = 'Error: MediaDevices API no soportada o bloqueada.';
+             cameraStatus.textContent = 'Error: API de Cámara no soportada o bloqueada.';
              console.error('MediaDevices API not available.');
+             statusElement.textContent = "Error API Cámara";
+             // Mantener botón de inicio visible para reintentar si es un problema temporal
              return;
         }
-        // Try to get permission first (might be needed for enumerateDevices in some browsers)
-        try {
-            await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-            // Stop the stream immediately after getting permission if needed,
-            // as enumerateDevices might work now.
-            // Or keep it if you plan to start the scanner right away.
-        } catch (permError) {
-             console.warn("Permission denied or error before enumeration:", permError);
-             // continue, maybe enumerateDevices still works
+
+        // Obtener permiso y enumerar cámaras
+        const devices = await Html5Qrcode.getCameras();
+        cameraSelector.innerHTML = '<option value="">Seleccionar cámara...</option>'; // Limpiar selector
+
+        if (!devices || devices.length === 0) {
+            cameraStatus.textContent = 'No se encontraron cámaras.';
+            statusElement.textContent = "Sin Cámaras";
+             // Mantener botón de inicio visible
+            return;
         }
 
-        const devices = await Html5Qrcode.getCameras();
-        cameraSelector.innerHTML = '<option value="">Seleccionar cámara...</option>';
-        if (!devices || devices.length === 0) {
-            cameraStatus.textContent = 'No se encontraron cámaras disponibles.'; return;
-        }
         devices.forEach((device, index) => {
             const option = document.createElement('option');
             option.value = device.id;
@@ -323,73 +329,86 @@ async function initScanner() {
             cameraSelector.appendChild(option);
         });
 
-        // Try to select the back camera, otherwise the first one
+        // Preseleccionar cámara trasera o la primera
         const backCam = devices.find(d => d.label && (d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('rear') || d.label.toLowerCase().includes('trás'))) || devices[0];
 
         if (backCam) {
-            currentCameraId = backCam.id;
             cameraSelector.value = backCam.id;
-            await startScanner(backCam.id);
+            currentCameraId = backCam.id; // Guardar ID seleccionado
+             console.log("Cámaras encontradas, lista actualizada. Cámara preseleccionada:", backCam.label || backCam.id);
+             // NO iniciar el escáner aquí, esperar al botón
+             await startScanner(currentCameraId); // AHORA SÍ INICIAMOS
         } else {
-            cameraStatus.textContent = 'No se pudo seleccionar una cámara por defecto.';
+            cameraStatus.textContent = 'No se pudo preseleccionar cámara.';
+             statusElement.textContent = "Error selección";
+             // Mantener botón de inicio visible
         }
 
     } catch (error) {
-        console.error('Error al obtener cámaras:', error);
-        cameraStatus.textContent = `Error al acceder cámara: ${error.message}. (HTTPS/localhost requerido).`;
+        console.error('Error inicializando cámaras:', error);
+        if (`${error}`.toLowerCase().includes('permission denied') || `${error}`.toLowerCase().includes('notallowederror')) {
+            cameraStatus.textContent = `Error: Permiso de cámara denegado. Revisa los permisos del navegador/sitio.`;
+            statusElement.textContent = "Permiso Denegado";
+        } else {
+            cameraStatus.textContent = `Error al acceder cámara: ${error.name} - ${error.message}. (¿HTTPS necesario?)`;
+            statusElement.textContent = "Error Cámara";
+        }
+        // Mantener botón de inicio visible
+        showStartButtonUI(); // Asegurarse de que el botón de inicio esté visible si falla
     }
 }
 
 // --- Control del Escáner ---
 async function startScanner(cameraId) {
-    if (!cameraId) return;
+    if (!cameraId) {
+        cameraStatus.textContent = 'Error: No se seleccionó ID de cámara.';
+        statusElement.textContent = "Error ID Cámara";
+        showStartButtonUI(); // Mostrar botón de inicio si falla
+        return;
+    }
     statusElement.textContent = "Iniciando cámara...";
-    cameraStatus.textContent = '';
+    cameraStatus.textContent = ''; // Limpiar error previo
+    showScannerActiveUI(); // Mostrar UI del escáner activo
 
     try {
         if (html5QrCode && html5QrCode.isScanning) {
-            console.log("Stopping existing scanner...");
+            console.log("Deteniendo escáner existente...");
             await html5QrCode.stop();
-            console.log("Scanner stopped.");
+            console.log("Escáner detenido.");
         }
-        // Asegurarse que la instancia existe
         if (!html5QrCode) {
-             // Pasar verbose=false para menos logs de la librería
-            html5QrCode = new Html5Qrcode("scanner-preview", /* verbose= */ false);
-             console.log("Html5Qrcode instance created.");
+            html5QrCode = new Html5Qrcode("scanner-preview", { verbose: false });
+             console.log("Instancia Html5Qrcode creada.");
         }
 
-        // *** CORRECCIÓN APLICADA ***
-        // Remove `supportedScanTypes` from the core config for .start()
         const config = {
             fps: 10,
             qrbox: { width: 250, height: 150 },
             aspectRatio: 1.7777778 // 16:9 aprox.
-            // supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA] // REMOVED THIS LINE
         };
 
-        console.log(`Starting scanner with camera ID: ${cameraId} and config:`, config);
+        console.log(`Iniciando escáner con cámara ID: ${cameraId}`, config);
         await html5QrCode.start(
             cameraId,
             config,
             onScanSuccess,
             onScanFailure
         );
-        console.log("Scanner started successfully.");
-        cameraStatus.textContent = ''; // Clear any previous error
+        console.log("Escáner iniciado correctamente.");
+        cameraStatus.textContent = ''; // Limpiar si hubo error antes
         currentCameraId = cameraId;
         statusElement.textContent = "Escaneando...";
+        // UI ya se mostró al inicio de la función
 
     } catch (error) {
         console.error(`Error al iniciar escáner con cámara ${cameraId}:`, error);
-        // Mostrar mensaje más útil
-        cameraStatus.textContent = `Error al iniciar cámara: ${error.name} - ${error.message}. Intenta seleccionar otra cámara.`;
+        cameraStatus.textContent = `Error al iniciar: ${error.name} - ${error.message}. Intenta seleccionar otra cámara o recargar.`;
+        statusElement.textContent = "Error al iniciar";
         if (html5QrCode && html5QrCode.isScanning) {
             await html5QrCode.stop().catch(e => console.error("Error al detener tras fallo:", e));
         }
-        statusElement.textContent = "Error al iniciar.";
-        // Reset camera ID if start failed
         currentCameraId = null;
+        showStartButtonUI(); // Mostrar botón de inicio si falla
     }
 }
 
@@ -398,22 +417,23 @@ async function stopScanner() {
     autoClearTimeout = null;
     if (html5QrCode && html5QrCode.isScanning) {
         try {
-            console.log("Stopping scanner manually...");
+            console.log("Deteniendo escáner manualmente...");
+            statusElement.textContent = "Deteniendo...";
             await html5QrCode.stop();
-            console.log("Scanner stopped manually.");
-            currentCameraId = null; // Resetear cámara al detener manualmente
-            statusElement.textContent = "Escáner detenido.";
-            scannerPreview.classList.remove('scan-success-border');
-            // Clear the preview area if needed
-            scannerPreview.innerHTML = '';
-            // Optional: Reset camera selector to default
-            // cameraSelector.value = "";
+            console.log("Escáner detenido manualmente.");
         } catch (error) {
             console.error("Error al detener:", error);
             statusElement.textContent = "Error al detener.";
+        } finally {
+             currentCameraId = null; // Resetear cámara
+             scannerPreview.innerHTML = ''; // Limpiar vista previa
+             statusElement.textContent = "Escáner detenido.";
+             showStartButtonUI(); // Mostrar UI inicial
         }
     } else {
-        statusElement.textContent = "Escáner no activo.";
+        console.log("Intento de detener, pero el escáner no estaba activo.");
+        showStartButtonUI(); // Asegurar que la UI esté en estado inicial
+        statusElement.textContent = "Listo para iniciar.";
     }
 }
 
@@ -438,11 +458,25 @@ function onScanSuccess(decodedText, decodedResult) {
 
     // Captura Visual (Opcional)
     if (window.html2canvas) {
-        html2canvas(scannerPreview).then(canvas => {
-            capturaContainer.innerHTML = "";
-            capturaContainer.appendChild(canvas);
-        }).catch(err => console.error("html2canvas error:", err));
+        // Asegurarse que el elemento de video exista dentro del preview
+        const videoElement = scannerPreview.querySelector('video');
+        if (videoElement) {
+            html2canvas(videoElement, { // Capturar el video directamente si es posible
+                useCORS: true // Puede ser necesario si el video viene de otra fuente (menos probable aquí)
+            }).then(canvas => {
+                capturaContainer.innerHTML = ""; // Limpiar contenedor previo
+                // Forzar tamaño para que no sea gigante
+                canvas.style.maxWidth = '150px';
+                canvas.style.height = 'auto';
+                capturaContainer.appendChild(canvas);
+            }).catch(err => console.error("html2canvas error:", err));
+        } else {
+             console.warn("No se encontró elemento <video> para html2canvas");
+        }
+    } else {
+         console.warn("html2canvas no está cargado.");
     }
+
 
     // Limpieza Automática (Opcional)
     if (autoClearToggle.checked) {
@@ -454,18 +488,32 @@ function onScanSuccess(decodedText, decodedResult) {
 function onScanFailure(error) {
     // Evitar mostrar errores constantes de "no encontrado"
     if (statusElement.textContent === "Código detectado ✅") {
-       // If we previously had a success, reset status after a failure
-        statusElement.textContent = "Escaneando...";
+        statusElement.textContent = "Escaneando..."; // Resetear si hubo éxito previo
     }
-    // Don't log common errors like 'NotFoundException' unless debugging
+    // No loguear errores comunes a menos que se esté depurando
     if (!`${error}`.includes("NotFoundException")) {
-        console.warn(`Scan Failure: ${error}`);
+        // console.warn(`Scan Failure: ${error}`); // Descomentar para depurar
     }
     // Quitar borde verde si hubo un fallo después de un éxito
     scannerPreview.classList.remove('scan-success-border');
 }
 
 // --- Control de UI ---
+
+// NUEVO: Funciones para manejar la visibilidad de la UI
+function showStartButtonUI() {
+    startScanButton.style.display = 'inline-block';
+    scannerActiveControlsDiv.style.display = 'none';
+    statusElement.textContent = "Listo para iniciar."; // Mensaje inicial
+}
+
+function showScannerActiveUI() {
+    startScanButton.style.display = 'none';
+    scannerActiveControlsDiv.style.display = 'block';
+    // Asegurarse que stopScanButton esté visible
+    stopScanButton.style.display = 'inline-block';
+}
+
 function switchTab(targetId) {
     tabs.forEach(tab => tab.classList.remove('active'));
     sections.forEach(sec => sec.classList.remove('active'));
@@ -475,26 +523,22 @@ function switchTab(targetId) {
     if (targetSection) targetSection.classList.add('active');
 
     if (targetId === 'scan') {
-        // Reiniciar escáner al volver a la pestaña
-        if (currentCameraId) {
-            console.log("Switching to scan tab, restarting scanner...");
-            startScanner(currentCameraId).catch(err => console.error("Error restarting scanner on tab switch:", err));
-        } else {
-            console.log("Switching to scan tab, initializing scanner...");
-            initScanner().catch(err => console.error("Error initializing scanner on tab switch:", err));
-        }
+        // Al volver a la pestaña de scan, NO iniciar automáticamente.
+        // Mostrar el botón de inicio para que el usuario decida.
+        console.log("Cambiado a pestaña de Scan. Mostrando botón de inicio.");
+        showStartButtonUI();
+        statusElement.textContent = "Listo para iniciar.";
     } else {
         // Detener escáner al salir de la pestaña
-        console.log("Switching away from scan tab, stopping scanner...");
-        stopScanner().catch(err => console.error("Error stopping scanner on tab switch:", err));
+        console.log("Saliendo de pestaña de Scan, deteniendo escáner si está activo...");
+        stopScanner().catch(err => console.error("Error deteniendo escáner al cambiar de pestaña:", err));
     }
 }
 
 function toggleDarkMode() {
     document.body.classList.toggle('dark');
-    // Opcional: Guardar preferencia
+    document.body.classList.toggle('light'); // Añadir o quitar 'light'
     localStorage.setItem('darkMode', document.body.classList.contains('dark'));
-    // Update toggle button text/emoji if needed
     darkModeToggle.textContent = document.body.classList.contains('dark') ? '☀️' : '🌓';
 }
 
@@ -503,7 +547,7 @@ function clearScanResults() {
     proveedorAutoElement.textContent = '---';
     capturaContainer.innerHTML = '';
     gs1FieldsContainer.innerHTML = ''; // Limpiar datos GS1
-    statusElement.textContent = html5QrCode && html5QrCode.isScanning ? "Escaneando..." : "Esperando código...";
+    statusElement.textContent = html5QrCode && html5QrCode.isScanning ? "Escaneando..." : "Listo para iniciar.";
     if (autoClearTimeout) clearTimeout(autoClearTimeout);
     autoClearTimeout = null;
     console.log("Resultados limpiados.");
@@ -521,10 +565,11 @@ function copyScanResult() {
         setTimeout(() => { copyButton.innerText = "Copiar"; }, 1500);
     }).catch(err => {
         console.error('Error al copiar: ', err);
-        // Consider a more user-friendly fallback for older browsers or errors
         try {
            const textArea = document.createElement("textarea");
            textArea.value = textToCopy;
+           textArea.style.position = 'fixed'; // Evitar scroll
+           textArea.style.left = '-9999px';
            document.body.appendChild(textArea);
            textArea.focus();
            textArea.select();
@@ -534,7 +579,7 @@ function copyScanResult() {
            setTimeout(() => { copyButton.innerText = "Copiar"; }, 1500);
         } catch (execErr) {
             console.error('Fallback copy failed:', execErr);
-           alert("Error al copiar.");
+           alert("Error al copiar al portapapeles.");
         }
     });
 }
@@ -543,7 +588,6 @@ function playBeep() {
     try {
         if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
         if (!audioContext) { console.warn("Web Audio API no soportada."); return; }
-         // Resume context if needed (user interaction might be required first)
         if (audioContext.state === 'suspended') {
             audioContext.resume();
         }
@@ -552,8 +596,8 @@ function playBeep() {
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
         gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.01); // Volumen 0.5
-        oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // Frecuencia A5
+        gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.01);
+        oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
         oscillator.type = 'square';
         oscillator.start(audioContext.currentTime);
         gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.1);
@@ -569,20 +613,59 @@ document.addEventListener('DOMContentLoaded', () => {
     if (location.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(location.hostname)) {
         cameraStatus.textContent = 'Advertencia: La cámara requiere HTTPS.';
         console.warn('Camera access requires HTTPS or localhost.');
+         // Podrías incluso deshabilitar el botón de inicio aquí si no es HTTPS
+         // startScanButton.disabled = true;
+         // startScanButton.title = "Se requiere HTTPS para usar la cámara";
     }
 
-    // --- CORRECCIÓN ALTERNATIVA / MÁS ROBUSTA para changeCamera ---
-    // Remove the `onchange` from the HTML select element
-    // Add the listener here instead
+    // --- Listener para el botón de INICIO ---
+    if (startScanButton) {
+        startScanButton.addEventListener('click', () => {
+            startScanButton.disabled = true; // Deshabilitar mientras inicia
+            statusElement.textContent = "Solicitando permiso...";
+            initScanner() // Llama a la función que ahora inicia el escáner
+                .then(() => {
+                    // initScanner ahora llama a startScanner, que actualiza la UI en éxito/fallo
+                    // startScanButton.disabled = false; // Re-enable ONLY if init fails within its own catch block
+                })
+                .catch(err => {
+                    console.error("Error en el flujo de inicio:", err);
+                    statusElement.textContent = "Error al iniciar.";
+                    startScanButton.disabled = false; // Re-habilitar si falla aquí
+                    showStartButtonUI(); // Asegurar UI inicial
+                });
+        });
+    }
+
+     // --- Listener para el botón de DETENER ---
+    if (stopScanButton) {
+        stopScanButton.addEventListener('click', () => {
+            stopScanButton.disabled = true; // Deshabilitar mientras detiene
+            stopScanner().finally(() => {
+                stopScanButton.disabled = false; // Re-habilitar después de intentar detener
+            });
+        });
+    }
+
+
+    // --- Listener para el selector de cámara ---
     if (cameraSelector) {
         cameraSelector.addEventListener('change', (event) => {
              const selectedCameraId = event.target.value;
-             handleCameraChange(selectedCameraId); // Call a new handler function
+             if (selectedCameraId && html5QrCode && html5QrCode.isScanning) {
+                 // Solo cambiar si el escáner está activo
+                 handleCameraChange(selectedCameraId);
+             } else if (!selectedCameraId && html5QrCode && html5QrCode.isScanning) {
+                 // Si seleccionan la opción vacía mientras escanea, detener.
+                 stopScanner();
+             } else if (selectedCameraId && !html5QrCode?.isScanning) {
+                 // Si seleccionan una cámara pero no está escaneando, guardar el ID
+                 // para usarlo la próxima vez que presionen "Iniciar"
+                 currentCameraId = selectedCameraId;
+                 console.log("Cámara preseleccionada para el próximo inicio:", selectedCameraId);
+             }
         });
     }
-    // -------------------------------------------------------------
-
-    initScanner().catch(err => console.error("Initial scanner init failed:", err)); // Iniciar búsqueda de cámaras y escáner
 
     // Listeners para Tabs
     tabs.forEach(tab => {
@@ -594,44 +677,61 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Listener para Modo Oscuro
     if (darkModeToggle) {
-        // Set initial dark mode state from localStorage
         if (localStorage.getItem('darkMode') === 'true') {
             document.body.classList.add('dark');
+             document.body.classList.remove('light'); // Asegurarse que light no esté
         } else {
-             document.body.classList.add('light'); // Ensure one is set
+             document.body.classList.add('light');
+             document.body.classList.remove('dark'); // Asegurarse que dark no esté
         }
-         // Set initial toggle text/emoji
         darkModeToggle.textContent = document.body.classList.contains('dark') ? '☀️' : '🌓';
         darkModeToggle.addEventListener('click', toggleDarkMode);
     }
 
 
-    // Listeners para Botones de Acción
+    // Listeners para Botones de Acción (Copiar/Limpiar)
     if (copyButton) copyButton.addEventListener('click', copyScanResult);
     if (clearButton) clearButton.addEventListener('click', clearScanResults);
 
     // Registrar Service Worker para PWA
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./service-worker.js') // Asegúrate que la ruta sea correcta
+        navigator.serviceWorker.register('./service-worker.js')
             .then(reg => console.log('Service Worker Registrado:', reg.scope))
             .catch(err => console.error('Error registro Service Worker:', err));
     }
+
+     // Estado inicial de la UI
+     showStartButtonUI();
+
 });
 
 // --- Handler function for camera change ---
+// ESTA FUNCIÓN AHORA SOLO REINICIA EL ESCÁNER SI YA ESTÁ CORRIENDO
 async function handleCameraChange(cameraId) {
     if (!cameraId) {
-        console.log("Camera selection cleared, stopping scanner.");
+        console.log("Selección de cámara vacía, deteniendo.");
         await stopScanner();
         return;
     }
     if (cameraId === currentCameraId) {
-        console.log("Selected camera is already active.");
-        return; // No need to restart if the same camera is selected
+        console.log("Cámara seleccionada ya está activa.");
+        return;
     }
-    console.log(`Changing camera to: ${cameraId}`);
-    await startScanner(cameraId);
+    console.log(`Cambiando cámara a: ${cameraId}`);
+    // Detener y reiniciar con la nueva cámara
+    if (html5QrCode && html5QrCode.isScanning) {
+        await stopScanner(); // Detiene y actualiza UI
+        // El usuario tendrá que volver a pulsar "Iniciar" si quiere usar la cámara seleccionada
+        // O podríamos iniciarla automáticamente aquí:
+        currentCameraId = cameraId; // Guardamos la selección
+        startScanButton.click(); // Simulamos clic en iniciar con la nueva cámara preseleccionada
+        console.log("Cámara cambiada, reiniciando escaneo...");
+        // await startScanner(cameraId); // Alternativa: iniciar directamente sin simular clic
+    } else {
+         currentCameraId = cameraId; // Solo guardar la selección si no estaba escaneando
+         console.log("Cámara seleccionada para el próximo inicio:", cameraId);
+    }
 };
 
-// --- REMOVE OR COMMENT OUT the old global assignment ---
-// window.changeCamera = async (cameraId) => { ... };
+// Ya no se necesita la asignación global
+// window.changeCamera = handleCameraChange;
