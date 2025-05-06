@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Escáner GS1 y Códigos de Barras - v2</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Escáner de GS1 y Barras</h1>
+    <div class="controls">
+      <label for="provider-select">Proveedor:</label>
+      <select id="provider-select">
+        <option value="">--Seleccione--</option>
+        <option value="Proveedor A">Proveedor A</option>
+        <option value="Proveedor B">Proveedor B</option>
+      </select>
+      <label for="camera-select">Cámara:</label>
+      <select id="camera-select"></select>
+      <button id="toggle-scan-mode">Modo QR</button>
+      <button id="filter-btn">Filtrar Fecha</button>
+      <input type="date" id="filter-from" />
+      <input type="date" id="filter-to" />
+      <button id="export-btn">Exportar CSV</button>
+      <button id="export-json-btn">Exportar JSON</button>
+      <button id="export-xlsx-btn">Exportar XLSX</button>
+      <button id="print-labels-btn">Imprimir Etiquetas</button>
+      <button id="stats-btn">Ver Estadísticas</button>
+      <div class="field-selector">
+        <span>Campos a exportar:</span>
+        <label><input type="checkbox" value="01" checked>GTIN</label>
+        <label><input type="checkbox" value="10" checked>Lote</label>
+        <label><input type="checkbox" value="17" checked>Vencimiento</label>
+        <label><input type="checkbox" value="21" checked>Serie</label>
+        <label><input type="checkbox" value="22" checked>Código</label>
+        <label><input type="checkbox" value="240" checked>Referencia</label>
+      </div>
+    </div>
+    <div id="notification"></div>
+    <div id="reader"></div>
+    <div id="result-container">
+      <textarea id="qr-result" readonly placeholder="Resultado"></textarea>
+      <div id="parsed-data"></div>
+    </div>
+    <div id="stats-container" class="hidden">
+      <h2>Estadísticas de Escaneos</h2>
+      <canvas id="stats-chart"></canvas>
+    </div>
+  </div>
+  <!-- Libraries -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
