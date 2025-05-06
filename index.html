@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Escáner de GS1 y Barras</title>
   <link rel="stylesheet" href="style.css">
   <script src="html5-qrcode.min.js"></script>
@@ -14,8 +14,14 @@
     .tab.active { background: #023e8a; }
     .section { display: none; padding: 1em; border: 2px solid #ccc; border-radius: 10px; }
     .section.active { display: block; }
-    #scanner-preview { width: 100%; max-width: 400px; margin: auto; }
-    .dark-mode-toggle { position: absolute; top: 10px; right: 10px; cursor: pointer; }
+    #scanner-preview { width: 100%; max-width: 400px; margin: auto; height: 300px; }
+    .dark-mode-toggle { position: fixed; top: 10px; right: 10px; cursor: pointer; z-index: 1000; }
+    #camera-selector { margin: 10px auto; display: block; width: 100%; max-width: 400px; }
+    .camera-error { color: red; text-align: center; padding: 10px; }
+    @media (max-width: 600px) {
+      #scanner-preview { height: 250px; }
+      .tab { padding: 0.5em; font-size: 0.9em; }
+    }
   </style>
 </head>
 <body class="light">
@@ -29,7 +35,11 @@
 
   <!-- Sección Escaner -->
   <div id="scan" class="section active">
+    <select id="camera-selector" onchange="changeCamera(this.value)">
+      <option value="">Seleccionar cámara...</option>
+    </select>
     <div id="scanner-preview"></div>
+    <p id="camera-status" class="camera-error"></p>
     <p id="status">Esperando código...</p>
     <p><strong>Proveedor detectado:</strong> <span id="proveedor-auto">---</span></p>
     <p><strong>Resultado:</strong></p>
@@ -45,42 +55,119 @@
   </div>
 
   <script>
-    const scanner = new Html5Qrcode("scanner-preview");
+    let scanner;
+    let currentCameraId = null;
 
-    async function startScanner() {
-      const devices = await Html5Qrcode.getCameras();
-      const backCam = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('trasera')) || devices[0];
-
-      scanner.start(
-        backCam.id,
-        { fps: 10, qrbox: 250, facingMode: 'environment' },
-        qrCodeMessage => {
-          document.getElementById("resultado").value = qrCodeMessage;
-          document.getElementById("status").textContent = "Código detectado ✅";
-
-          // Detección de proveedor
-          let proveedor = qrCodeMessage.includes("BIO") ? "BIOPROTECE" : qrCodeMessage.includes("SAI") ? "SAI" : "No identificado";
-          document.getElementById("proveedor-auto").textContent = proveedor;
-
-          // Captura visual del canvas
-          html2canvas(document.getElementById("scanner-preview")).then(canvas => {
-            document.getElementById("captura-container").innerHTML = "";
-            document.getElementById("captura-container").appendChild(canvas);
-          });
-        },
-        errorMsg => {
-          document.getElementById("status").textContent = "Escaneando...";
+    // Inicializar el escáner
+    async function initScanner() {
+      try {
+        // Obtener lista de cámaras
+        const devices = await Html5Qrcode.getCameras();
+        const cameraSelector = document.getElementById('camera-selector');
+        
+        // Limpiar selector
+        cameraSelector.innerHTML = '<option value="">Seleccionar cámara...</option>';
+        
+        if (devices.length === 0) {
+          document.getElementById('camera-status').textContent = 'No se encontraron cámaras disponibles';
+          return;
         }
-      );
+        
+        // Llenar selector de cámaras
+        devices.forEach(device => {
+          const option = document.createElement('option');
+          option.value = device.id;
+          option.text = device.label || `Cámara ${cameraSelector.options.length}`;
+          cameraSelector.appendChild(option);
+        });
+        
+        // Seleccionar cámara trasera por defecto si existe
+        const backCam = devices.find(d => 
+          d.label.toLowerCase().includes('back') || 
+          d.label.toLowerCase().includes('rear') ||
+          d.label.toLowerCase().includes('trasera')
+        ) || devices[0];
+        
+        currentCameraId = backCam.id;
+        cameraSelector.value = backCam.id;
+        startScanner(backCam.id);
+        
+      } catch (error) {
+        console.error('Error al obtener cámaras:', error);
+        document.getElementById('camera-status').textContent = 'Error al acceder a la cámara: ' + error.message;
+      }
     }
 
-    startScanner();
+    // Iniciar el escáner con una cámara específica
+    async function startScanner(cameraId) {
+      try {
+        // Detener el escáner actual si existe
+        if (scanner && scanner.isScanning) {
+          await scanner.stop();
+        }
+        
+        // Crear nueva instancia del escáner
+        scanner = new Html5Qrcode("scanner-preview");
+        
+        // Configuración optimizada para móviles
+        const config = {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          facingMode: 'environment',
+          supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+        };
+        
+        await scanner.start(
+          cameraId,
+          config,
+          qrCodeMessage => {
+            document.getElementById("resultado").value = qrCodeMessage;
+            document.getElementById("status").textContent = "Código detectado ✅";
+            
+            // Detección de proveedor
+            let proveedor = qrCodeMessage.includes("BIO") ? "BIOPROTECE" : 
+                          qrCodeMessage.includes("SAI") ? "SAI" : "No identificado";
+            document.getElementById("proveedor-auto").textContent = proveedor;
+            
+            // Captura visual del canvas
+            if (window.html2canvas) {
+              html2canvas(document.getElementById("scanner-preview")).then(canvas => {
+                document.getElementById("captura-container").innerHTML = "";
+                document.getElementById("captura-container").appendChild(canvas);
+              });
+            }
+          },
+          errorMsg => {
+            document.getElementById("status").textContent = "Escaneando...";
+          }
+        );
+        
+        document.getElementById('camera-status').textContent = '';
+        currentCameraId = cameraId;
+        
+      } catch (error) {
+        console.error('Error al iniciar escáner:', error);
+        document.getElementById('camera-status').textContent = 'Error al iniciar cámara: ' + error.message;
+      }
+    }
 
+    // Cambiar de cámara
+    async function changeCamera(cameraId) {
+      if (!cameraId) return;
+      await startScanner(cameraId);
+    }
+
+    // Cambiar entre pestañas
     function switchTab(tabId) {
       document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
       document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
       document.querySelector(`#${tabId}`).classList.add('active');
       document.querySelector(`.tab[onclick*='${tabId}']`).classList.add('active');
+      
+      // Al volver a la pestaña de escaneo, reiniciar la cámara si estaba activa
+      if (tabId === 'scan' && currentCameraId) {
+        startScanner(currentCameraId);
+      }
     }
 
     // Modo oscuro
@@ -88,6 +175,9 @@
       document.body.classList.toggle('dark');
       document.body.classList.toggle('light');
     };
+
+    // Inicializar al cargar la página
+    document.addEventListener('DOMContentLoaded', initScanner);
   </script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </body>
