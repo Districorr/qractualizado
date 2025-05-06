@@ -3,60 +3,79 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0077b6"/> <!-- Color para PWA -->
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png"> <!-- Icono para iOS -->
+
   <title>Escáner de GS1 y Barras</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="light">
-  <div class="dark-mode-toggle">🌓</div>
+  <!-- MODIFICADO: Añadido aria-label -->
+  <div class="dark-mode-toggle" role="button" aria-label="Cambiar modo oscuro/claro" title="Cambiar modo oscuro/claro">🌓</div>
 
   <h2 style="text-align:center">Escáner de GS1 y Barras</h2>
   <div class="tabs">
-    <div class="tab active" data-tab-target="scan">📷 Escanear</div>
-    <div class="tab" data-tab-target="records">📁 Registros</div>
+    <div class="tab active" data-tab-target="scan" role="tab" aria-selected="true">📷 Escanear</div>
+    <div class="tab" data-tab-target="records" role="tab" aria-selected="false">📁 Registros</div>
   </div>
 
   <!-- Sección Escaner -->
-  <div id="scan" class="section active">
-    <select id="camera-selector" onchange="changeCamera(this.value)">
+  <div id="scan" class="section active" role="tabpanel">
+    <!-- MODIFICADO: Añadido aria-label -->
+    <select id="camera-selector" onchange="changeCamera(this.value)" aria-label="Seleccionar cámara a usar">
       <option value="">Seleccionar cámara...</option>
     </select>
     <div id="scanner-preview"></div>
-    <p id="camera-status" class="camera-error"></p>
-    <p id="status">Esperando código...</p>
+    <p id="camera-status" class="camera-error" aria-live="polite"></p>
+    <p id="status" aria-live="polite">Esperando código...</p>
     <p><strong>Proveedor detectado:</strong> <span id="proveedor-auto">---</span></p>
-    <p><strong>Resultado:</strong></p>
-    <textarea id="resultado" rows="4"></textarea>
-    <!-- NUEVO: Botones de acción -->
+    <p><strong>Resultado Crudo:</strong></p>
+    <!-- MODIFICADO: Añadido aria-label -->
+    <textarea id="resultado" rows="4" aria-label="Resultado del escaneo"></textarea>
     <div class="action-buttons">
-        <button id="copy-button" title="Copiar resultado">Copiar</button>
-        <button id="clear-button" title="Limpiar resultado">Limpiar</button>
+        <!-- MODIFICADO: Añadido aria-label -->
+        <button id="copy-button" title="Copiar resultado" aria-label="Copiar resultado del escaneo al portapapeles">Copiar</button>
+        <!-- MODIFICADO: Añadido aria-label -->
+        <button id="clear-button" title="Limpiar resultado" aria-label="Limpiar resultados del escaneo">Limpiar</button>
     </div>
+
+    <!-- NUEVO: Sección para datos GS1 parseados -->
+    <div id="gs1-parsed-data" class="gs1-data">
+        <h4>Datos GS1 Interpretados:</h4>
+        <div id="gs1-fields">
+            <!-- Los campos se insertarán aquí dinámicamente -->
+        </div>
+    </div>
+
     <div id="captura-container"></div>
 
-    <!-- NUEVO: Opciones -->
     <div class="options">
         <label>
-            <input type="checkbox" id="sound-toggle" checked>
+            <!-- MODIFICADO: Añadido aria-label -->
+            <input type="checkbox" id="sound-toggle" checked aria-label="Activar o desactivar sonido al escanear">
             Reproducir sonido al escanear
         </label>
         <br>
         <label>
-            <input type="checkbox" id="auto-clear-toggle">
+            <!-- MODIFICADO: Añadido aria-label -->
+            <input type="checkbox" id="auto-clear-toggle" aria-label="Activar o desactivar limpieza automática del resultado">
             Limpiar resultado automáticamente (tras 3 seg)
         </label>
     </div>
   </div>
 
   <!-- Sección Registros anteriores (Placeholder) -->
-  <div id="records" class="section">
+  <div id="records" class="section" role="tabpanel">
     <h3>Buscar registros anteriores</h3>
     <p><i>(Funcionalidad de registros no implementada todavía)</i></p>
-    <input type="text" placeholder="Buscar por lote, serie o proveedor..." disabled>
+    <input type="text" placeholder="Buscar por lote, serie o proveedor..." disabled aria-label="Buscar en registros anteriores">
     <div id="tabla-registros">(aquí aparecerá la tabla)</div>
   </div>
 
   <!-- Cargar Librerías ANTES -->
-  <script src="libs/html5-qrcode.min.js"></script> <!-- Asegúrate que la ruta sea correcta -->
+  <script src="libs/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <!-- Cargar script custom DESPUÉS de librerías -->
   <script src="scanner.js"></script>
