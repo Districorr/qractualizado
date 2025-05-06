@@ -2,7 +2,7 @@ body {
   margin:0; padding:0; font-family:Arial,sans-serif; background:#eef2f5;
 }
 .container {
-  max-width:900px; margin:20px auto; padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);
+  max-width:800px; margin:20px auto; padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);
 }
 .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:10px; }
 .controls label, .controls span { margin-right:5px; }
@@ -16,5 +16,5 @@ body {
 table { width:100%; border-collapse:collapse; margin-top:10px; }
 th, td { border:1px solid #ccc; padding:8px; text-align:left; }
 tr.highlight { animation:highlight 2s ease; }
-.hidden { display:none; }
+@keyframes highlight { from {background:#ffff99;} to {background:transparent;} }
 @media(max-width:600px){ .controls { flex-direction:column; } }
