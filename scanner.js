@@ -1,6 +1,8 @@
 let scanner;
 let currentCameraId = null;
 let html5QrCode = null; // Keep instance reference
+let audioContext = null; // NUEVO: Para el sonido
+let autoClearTimeout = null; // NUEVO: Para limpieza automática
 
 // DOM Elements (cache for slight performance gain)
 const cameraSelector = document.getElementById('camera-selector');
@@ -13,6 +15,10 @@ const capturaContainer = document.getElementById('captura-container');
 const tabs = document.querySelectorAll('.tab');
 const sections = document.querySelectorAll('.section');
 const darkModeToggle = document.querySelector('.dark-mode-toggle');
+const copyButton = document.getElementById('copy-button'); // NUEVO
+const clearButton = document.getElementById('clear-button'); // NUEVO
+const soundToggle = document.getElementById('sound-toggle');     // NUEVO
+const autoClearToggle = document.getElementById('auto-clear-toggle'); // NUEVO
 
 // --- Initialization ---
 
@@ -26,6 +32,9 @@ async function initScanner() {
              return;
         }
 
+        // NUEVO: Inicializar AudioContext (requiere interacción del usuario a veces, mejor al primer uso)
+        // audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
         const devices = await Html5Qrcode.getCameras();
         cameraSelector.innerHTML = '<option value="">Seleccionar cámara...</option>'; // Clear previous options
 
@@ -35,23 +44,20 @@ async function initScanner() {
             return;
         }
 
-        // Populate camera selector
         devices.forEach((device, index) => {
             const option = document.createElement('option');
             option.value = device.id;
-            // Ensure unique label even if browser doesn't provide one
             option.text = device.label || `Cámara ${index + 1} (ID: ${device.id.substring(0, 6)}...)`;
             cameraSelector.appendChild(option);
         });
 
-        // Attempt to select the back camera by default
         const backCam = devices.find(d =>
             d.label && (
                 d.label.toLowerCase().includes('back') ||
                 d.label.toLowerCase().includes('rear') ||
-                d.label.toLowerCase().includes('trás') // Spanish 'trasera'
+                d.label.toLowerCase().includes('trás')
             )
-        ) || devices[0]; // Fallback to the first camera
+        ) || devices[0];
 
         currentCameraId = backCam.id;
         cameraSelector.value = backCam.id;
@@ -65,34 +71,30 @@ async function initScanner() {
 
 // --- Scanner Control ---
 
-// Start the scanner with a specific camera
 async function startScanner(cameraId) {
     if (!cameraId) {
         console.warn("No camera ID provided to startScanner.");
         return;
     }
     statusElement.textContent = "Iniciando cámara...";
-    cameraStatus.textContent = ''; // Clear previous errors
+    cameraStatus.textContent = '';
 
     try {
-        // Stop the existing scanner if it's running
         if (html5QrCode && html5QrCode.isScanning) {
             await html5QrCode.stop();
-             console.log("Previous scanner stopped.");
+            console.log("Previous scanner stopped.");
         }
 
-        // Ensure the html5QrCode instance exists
         if (!html5QrCode) {
+            // Mantén verbose en false si no quieres logs detallados de la librería en consola
             html5QrCode = new Html5Qrcode("scanner-preview", /* verbose= */ false);
         }
 
-        // Configuration optimized for mobiles
         const config = {
             fps: 10,
-            qrbox: { width: 250, height: 150 }, // Rectangular might be better for barcodes
-            // facingMode: 'environment', // Less relevant when specifying exact camera ID
-            aspectRatio: 1.7777778, // 16:9 aspect ratio often works well
-             // *** THIS IS THE CRITICAL FIX ***
+            qrbox: { width: 250, height: 150 },
+            aspectRatio: 1.7777778,
+            // *** CORRECCIÓN IMPORTANTE ***
             supportedScanTypes: [Html5Qrcode.Html5QrcodeScanType.SCAN_TYPE_CAMERA]
         };
 
@@ -102,15 +104,15 @@ async function startScanner(cameraId) {
             onScanSuccess,
             onScanFailure
         );
-         console.log(`Scanner started successfully with camera ID: ${cameraId}`);
-        cameraStatus.textContent = ''; // Clear status on success
+        console.log(`Scanner started successfully with camera ID: ${cameraId}`);
+        cameraStatus.textContent = '';
         currentCameraId = cameraId;
         statusElement.textContent = "Escaneando...";
 
     } catch (error) {
         console.error(`Error al iniciar escáner con cámara ${cameraId}:`, error);
+        // MODIFICADO: Mensaje de error más específico
         cameraStatus.textContent = `Error al iniciar cámara: ${error.message}. Intenta seleccionar otra cámara.`;
-         // Optionally stop if failed
          if (html5QrCode && html5QrCode.isScanning) {
             await html5QrCode.stop().catch(e => console.error("Error stopping scanner after failed start:", e));
          }
@@ -118,14 +120,19 @@ async function startScanner(cameraId) {
     }
 }
 
-// Stop the scanner
 async function stopScanner() {
+    // NUEVO: Limpiar timeout de auto-limpieza si existe
+    if (autoClearTimeout) {
+        clearTimeout(autoClearTimeout);
+        autoClearTimeout = null;
+    }
     if (html5QrCode && html5QrCode.isScanning) {
         try {
             await html5QrCode.stop();
             console.log("Scanner stopped.");
-            currentCameraId = null; // Reset current camera when stopped manually
+            currentCameraId = null;
             statusElement.textContent = "Escáner detenido.";
+            scannerPreview.classList.remove('scan-success-border'); // NUEVO: Quitar borde verde
         } catch (error) {
             console.error("Error stopping the scanner: ", error);
             statusElement.textContent = "Error al detener.";
@@ -137,44 +144,49 @@ async function stopScanner() {
 }
 
 
-// Callback for successful scan
+// --- Callbacks ---
+
 function onScanSuccess(decodedText, decodedResult) {
     resultadoElement.value = decodedText;
     statusElement.textContent = "Código detectado ✅";
 
-    // Basic provider detection
-    let proveedor = "No identificado";
-    if (decodedText.includes("BIO")) {
-        proveedor = "BIOPROTECE";
-    } else if (decodedText.includes("SAI")) {
-        proveedor = "SAI";
+    // NUEVO: Feedback Visual
+    scannerPreview.classList.add('scan-success-border');
+    setTimeout(() => {
+        scannerPreview.classList.remove('scan-success-border');
+    }, 500); // Quita el borde después de 500ms
+
+    // NUEVO: Feedback Auditivo
+    if (soundToggle.checked) {
+        playBeep();
     }
+
+    // Detección de proveedor
+    let proveedor = "No identificado";
+    if (decodedText.includes("BIO")) proveedor = "BIOPROTECE";
+    else if (decodedText.includes("SAI")) proveedor = "SAI";
     proveedorAutoElement.textContent = proveedor;
 
-    // Optional: Visual capture using html2canvas (ensure it's needed)
+    // Captura visual opcional
     if (window.html2canvas) {
         html2canvas(scannerPreview).then(canvas => {
-            capturaContainer.innerHTML = ""; // Clear previous capture
-            // Optional: Resize canvas for display if needed
-            // canvas.style.width = '100px';
-            // canvas.style.height = 'auto';
+            capturaContainer.innerHTML = "";
             capturaContainer.appendChild(canvas);
-        }).catch(err => {
-            console.error("html2canvas error:", err);
-        });
+        }).catch(err => console.error("html2canvas error:", err));
     }
 
-    // Consider stopping scan after success if desired:
-    // stopScanner();
+    // NUEVO: Limpieza automática opcional
+    if (autoClearToggle.checked) {
+        if (autoClearTimeout) clearTimeout(autoClearTimeout); // Limpiar timeout anterior si existe
+        autoClearTimeout = setTimeout(() => {
+            clearScanResults();
+            autoClearTimeout = null; // Resetear referencia del timeout
+        }, 3000); // Limpiar después de 3 segundos
+    }
 }
 
-// Callback for scan failures (or continuous scanning updates)
 function onScanFailure(error) {
-    // Don't display error messages for "QR code not found" during continuous scan
     if (!error.includes("찾을 수 없습니다.") && !error.includes("No QR code found")) {
-       // cameraStatus.textContent = `Error de escaneo: ${error}`;
-       // console.warn(`Scan Failure: ${error}`);
-       // Keep statusElement showing "Escaneando..." or similar
        if (statusElement.textContent !== "Código detectado ✅") {
          statusElement.textContent = "Escaneando...";
        }
@@ -183,74 +195,119 @@ function onScanFailure(error) {
              statusElement.textContent = "Escaneando...";
          }
     }
-}
-
-// Change camera function called by selector
-async function changeCamera(cameraId) {
-    if (!cameraId) {
-        console.log("Camera selection cleared or invalid.");
-        await stopScanner(); // Stop if no camera is selected
-        return;
-    }
-    if (cameraId === currentCameraId) {
-        console.log(`Camera ${cameraId} already selected.`);
-        return;
-    }
-    console.log(`Changing camera to ID: ${cameraId}`);
-    await startScanner(cameraId);
+    // NUEVO: Asegurarse que el borde verde no se quede si falla
+    scannerPreview.classList.remove('scan-success-border');
 }
 
 // --- UI Control ---
 
-// Switch between Scan and Records tabs
 function switchTab(targetId) {
-    // Deactivate all tabs and sections
     tabs.forEach(tab => tab.classList.remove('active'));
     sections.forEach(sec => sec.classList.remove('active'));
 
-    // Activate the selected tab and section
     const targetTab = document.querySelector(`.tab[data-tab-target='${targetId}']`);
     const targetSection = document.getElementById(targetId);
 
     if (targetTab) targetTab.classList.add('active');
     if (targetSection) targetSection.classList.add('active');
 
-    // Handle scanner state when switching tabs
     if (targetId === 'scan') {
-        // If switching back to scan tab, try restarting with the last used camera
         if (currentCameraId) {
             startScanner(currentCameraId);
         } else {
-            // If no camera was active, re-initialize to find cameras
             initScanner();
         }
-        statusElement.textContent = "Esperando código..."; // Reset status
+        statusElement.textContent = "Esperando código...";
     } else {
-        // If switching away from scan tab, stop the scanner
         stopScanner();
     }
 }
 
-// Dark mode toggle functionality
 function toggleDarkMode() {
     document.body.classList.toggle('dark');
     document.body.classList.toggle('light');
-    // Optionally save preference to localStorage
-    // localStorage.setItem('darkMode', document.body.classList.contains('dark'));
 }
+
+// NUEVO: Limpiar los resultados del escaneo
+function clearScanResults() {
+    resultadoElement.value = '';
+    proveedorAutoElement.textContent = '---';
+    capturaContainer.innerHTML = '';
+    statusElement.textContent = html5QrCode && html5QrCode.isScanning ? "Escaneando..." : "Esperando código...";
+    // Limpiar timeout si el usuario limpia manualmente
+    if (autoClearTimeout) {
+        clearTimeout(autoClearTimeout);
+        autoClearTimeout = null;
+    }
+    console.log("Resultados limpiados.");
+}
+
+// NUEVO: Copiar resultado al portapapeles
+function copyScanResult() {
+    const textToCopy = resultadoElement.value;
+    if (!textToCopy) {
+        console.log("Nada que copiar.");
+        // Opcional: mostrar un mensaje breve al usuario
+        copyButton.innerText = "Vacío!";
+        setTimeout(() => { copyButton.innerText = "Copiar"; }, 1500);
+        return;
+    }
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        console.log("Texto copiado al portapapeles");
+        copyButton.innerText = "Copiado!";
+        setTimeout(() => { copyButton.innerText = "Copiar"; }, 1500); // Resetear texto del botón
+    }).catch(err => {
+        console.error('Error al copiar: ', err);
+        alert("Error al copiar al portapapeles."); // Mostrar error al usuario
+    });
+}
+
+// NUEVO: Función para reproducir sonido
+function playBeep() {
+    try {
+        // Inicializar AudioContext si no existe (importante para algunos navegadores)
+        if (!audioContext) {
+             audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (!audioContext) { // Si aún no se pudo crear
+            console.warn("Web Audio API no soportada en este navegador.");
+            return;
+        }
+
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        // Sube el volumen rápidamente
+        gainNode.gain.linearRampToValueAtTime(0.6, audioContext.currentTime + 0.01); // Volumen máximo 0.6
+
+        oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // Frecuencia (Hz) - La4 = 440, A5 = 880
+        oscillator.type = 'square'; // Tipo de onda: 'sine', 'square', 'sawtooth', 'triangle'
+
+        oscillator.start(audioContext.currentTime);
+        // Baja el volumen rápidamente para crear el "beep"
+        gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.1); // Duración del sonido = 0.1s
+        oscillator.stop(audioContext.currentTime + 0.1);
+
+    } catch (e) {
+        console.error("Error al reproducir sonido:", e);
+        // Desactivar checkbox si falla consistentemente? O solo loguear.
+        // soundToggle.checked = false;
+    }
+}
+
 
 // --- Event Listeners ---
 
-// Initialize scanner when the DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-     // Check for HTTPS
     if (location.protocol !== 'https:') {
-      // Allow localhost without HTTPS
       if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
         cameraStatus.textContent = 'Advertencia: La cámara requiere HTTPS para funcionar en la mayoría de los navegadores.';
         console.warn('Camera access requires HTTPS.');
-        // Don't initialize scanner if not secure and not localhost
-        // return;
       }
     }
 
@@ -266,21 +323,39 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-     // Dark Mode Toggle Listener
     if (darkModeToggle) {
         darkModeToggle.addEventListener('click', toggleDarkMode);
     }
 
-     // Optional: Check localStorage for saved dark mode preference
-    // if (localStorage.getItem('darkMode') === 'true') {
-    //    document.body.classList.add('dark');
-    //    document.body.classList.remove('light');
-    // } else {
-    //    document.body.classList.add('light');
-    //    document.body.classList.remove('dark');
-    // }
+    // NUEVO: Listeners para botones de acción
+    if (copyButton) {
+        copyButton.addEventListener('click', copyScanResult);
+    }
+    if (clearButton) {
+        clearButton.addEventListener('click', clearScanResults);
+    }
+
+     // NUEVO: Listener para iniciar AudioContext con interacción del usuario (opcional pero recomendado)
+     // Si el sonido no funciona, descomentar estas líneas podría ayudar
+     /*
+     function initAudio() {
+         if (!audioContext) {
+             try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                console.log("AudioContext inicializado por interacción.");
+             } catch(e) {
+                console.error("No se pudo inicializar AudioContext", e);
+             }
+         }
+         // Remover el listener una vez inicializado
+         document.body.removeEventListener('click', initAudio);
+         document.body.removeEventListener('touchstart', initAudio);
+     }
+     document.body.addEventListener('click', initAudio, { once: true });
+     document.body.addEventListener('touchstart', initAudio, { once: true });
+     */
+
 });
 
 // Make functions globally accessible if called directly from HTML `onchange`
 window.changeCamera = changeCamera;
-// window.switchTab = switchTab; // No longer needed if using data attributes + event listener
