@@ -2,12 +2,10 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <!-- Ensure camera works on mobile devices -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Escáner de GS1 y Barras</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<!-- Default to light mode -->
 <body class="light">
   <div class="dark-mode-toggle">🌓</div>
 
@@ -22,31 +20,45 @@
     <select id="camera-selector" onchange="changeCamera(this.value)">
       <option value="">Seleccionar cámara...</option>
     </select>
-    <!-- Container for the scanner preview -->
     <div id="scanner-preview"></div>
-    <!-- Error message display -->
     <p id="camera-status" class="camera-error"></p>
     <p id="status">Esperando código...</p>
     <p><strong>Proveedor detectado:</strong> <span id="proveedor-auto">---</span></p>
     <p><strong>Resultado:</strong></p>
-    <textarea id="resultado" rows="4" style="width:100%"></textarea>
-    <!-- Optional: Container for captured image preview -->
+    <textarea id="resultado" rows="4"></textarea>
+    <!-- NUEVO: Botones de acción -->
+    <div class="action-buttons">
+        <button id="copy-button" title="Copiar resultado">Copiar</button>
+        <button id="clear-button" title="Limpiar resultado">Limpiar</button>
+    </div>
     <div id="captura-container"></div>
+
+    <!-- NUEVO: Opciones -->
+    <div class="options">
+        <label>
+            <input type="checkbox" id="sound-toggle" checked>
+            Reproducir sonido al escanear
+        </label>
+        <br>
+        <label>
+            <input type="checkbox" id="auto-clear-toggle">
+            Limpiar resultado automáticamente (tras 3 seg)
+        </label>
+    </div>
   </div>
 
   <!-- Sección Registros anteriores (Placeholder) -->
   <div id="records" class="section">
     <h3>Buscar registros anteriores</h3>
     <p><i>(Funcionalidad de registros no implementada todavía)</i></p>
-    <input type="text" placeholder="Buscar por lote, serie o proveedor..." style="width:100%;padding:0.5em" disabled>
+    <input type="text" placeholder="Buscar por lote, serie o proveedor..." disabled>
     <div id="tabla-registros">(aquí aparecerá la tabla)</div>
   </div>
 
-  <!-- Load Libraries FIRST -->
-  <!-- Línea NUEVA (correcta si el archivo está en libs) -->
-  <script src="libs/html5-qrcode.min.js"></script>
+  <!-- Cargar Librerías ANTES -->
+  <script src="libs/html5-qrcode.min.js"></script> <!-- Asegúrate que la ruta sea correcta -->
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <!-- Load custom script AFTER libraries -->
+  <!-- Cargar script custom DESPUÉS de librerías -->
   <script src="scanner.js"></script>
 </body>
 </html>
