@@ -9,36 +9,65 @@
 <body>
   <div class="container">
     <h1>Escáner de GS1 y Barras</h1>
+
+    <!-- Controles Principales -->
     <div class="controls">
       <label for="provider-select">Proveedor:</label>
       <select id="provider-select">
-        <option value="">--Seleccione--</option>
-        <option value="Proveedor A">Proveedor A</option>
-        <option value="Proveedor B">Proveedor B</option>
+        <!-- Opción por defecto para modo automático/genérico -->
+        <option value="" selected>--Automático/Genérico--</option>
+        <!-- Opciones específicas -->
+        <option value="bioprotece">BIOPROTECE</option>
+        <option value="sai">SAI</option>
       </select>
-      <button id="toggle-scan-mode">Modo QR</button>
+      <button id="toggle-scan-mode">Modo QR</button> <!-- El texto inicial es QR -->
       <button id="export-btn">Exportar CSV</button>
       <button id="export-xlsx-btn">Exportar XLSX</button>
+
+      <!-- Selección de Campos para Exportar -->
       <div class="field-selector">
-        <span>Campos a exportar:</span>
-        <label><input type="checkbox" value="01" checked>GTIN</label>
-        <label><input type="checkbox" value="10" checked>Lote</label>
-        <label><input type="checkbox" value="17" checked>Vencimiento</label>
-        <label><input type="checkbox" value="21" checked>Serie</label>
-        <label><input type="checkbox" value="22" checked>Código</label>
-        <label><input type="checkbox" value="240" checked>Referencia</label>
+        <span>Campos a exportar (CSV/XLSX):</span>
+        <label><input type="checkbox" value="provider" checked>Proveedor</label>
+        <label><input type="checkbox" value="01" checked>GTIN(01)</label>
+        <label><input type="checkbox" value="10" checked>Lote(10)</label>
+        <label><input type="checkbox" value="17" checked>Vencimiento(17)</label>
+        <label><input type="checkbox" value="21" checked>Serie(21)</label>
+        <label><input type="checkbox" value="22" checked>Código(22)</label> <!-- Específico BIOPROTECE -->
+        <label><input type="checkbox" value="240" checked>Referencia(240)</label> <!-- Específico SAI -->
       </div>
     </div>
+
+    <!-- Área de Notificaciones -->
     <div id="notification"></div>
+
+    <!-- Div donde se renderiza la vista previa del escáner -->
     <div id="reader"></div>
+
+    <!-- Contenedor para el resultado crudo y los datos parseados del último escaneo -->
     <div id="result-container">
-      <textarea id="qr-result" readonly placeholder="Resultado"></textarea>
-      <div id="parsed-data"></div>
+      <textarea id="qr-result" readonly placeholder="Resultado Crudo Aquí..."></textarea>
+      <!-- Div para mostrar los campos parseados del último escaneo -->
+      <div id="parsed-data" style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
+          <!-- El contenido aquí se generará dinámicamente por JavaScript -->
+          <p>Escanee un código para ver los detalles aquí.</p>
+      </div>
     </div>
-  </div>
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+    <!-- Contenedor para la tabla de historial -->
+    <div id="history-table-container" style="margin-top: 20px;">
+      <h2>Historial de Escaneos</h2>
+      <!-- La tabla se insertará aquí por JavaScript -->
+      <div id="table-placeholder"><p>El historial de escaneos aparecerá aquí.</p></div>
+    </div>
+  </div> <!-- Fin del container -->
+
+  <!-- Librerías Externas -->
+  <!-- Asegúrate que estas rutas sean correctas o usa las versiones alojadas -->
+  <script src="https://unpkg.com/html5-qrcode"></script> <!-- Para QR y potencialmente Barras 1D -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script> <!-- Para Barras 1D específicamente -->
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script> <!-- Para exportar a XLSX -->
+
+  <!-- Tu Script Personalizado (debe ir después de las librerías) -->
   <script src="script.js"></script>
 </body>
 </html>
