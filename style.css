@@ -249,3 +249,35 @@ body.dark .options {
   margin-right: 5px;
   vertical-align: middle; /* Alinear checkbox con texto */
 }
+.gs1-data {
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+  text-align: left;
+}
+body.dark .gs1-data {
+    border-top-color: #444;
+}
+.gs1-data h4 {
+  margin-bottom: 8px;
+  font-size: 1em;
+}
+.gs1-field {
+  font-size: 0.9em;
+  margin-bottom: 4px;
+  word-wrap: break-word; /* Para valores largos */
+}
+.gs1-field strong {
+  margin-right: 5px;
+  color: #005b99; /* Color primario para AI */
+}
+body.dark .gs1-field strong {
+    color: #87ceeb; /* Un azul más claro para modo oscuro */
+}
+.gs1-field span.expired {
+  color: red;
+  font-weight: bold;
+}
+body.dark .gs1-field span.expired {
+  color: #ff6666; /* Rojo más brillante en modo oscuro */
+}
