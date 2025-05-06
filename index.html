@@ -27,6 +27,17 @@
     <!-- Contenedor General para Controles de Escaneo -->
     <div id="scanner-controls" style="text-align: center;">
 
+        <!-- Selector de Proveedor -->
+        <div style="margin-bottom: 10px;">
+            <label for="provider-selector" style="margin-right: 5px;">Proveedor:</label>
+            <select id="provider-selector" aria-label="Seleccionar proveedor para interpretar código">
+                <option value="auto" selected>Automático</option>
+                <option value="bioprotece">BIOPROTECE</option>
+                <option value="sai">SAI</option>
+                <option value="otros">Otros (GS1 Genérico)</option>
+            </select>
+        </div>
+
         <!-- Botón Principal para Iniciar el Escaneo (visible inicialmente) -->
         <button id="start-scan-button" class="action-buttons" style="margin: 1em auto; padding: 10px 20px; font-size: 1.1em;">Iniciar Escaneo</button>
 
@@ -47,7 +58,8 @@
             <!-- Mensajes de Estado -->
             <p id="camera-status" class="camera-error" aria-live="polite"></p>
             <p id="status" aria-live="polite">Esperando inicio...</p>
-            <p><strong>Proveedor detectado:</strong> <span id="proveedor-auto">---</span></p>
+            <!-- Etiqueta actualizada para reflejar selección/detección -->
+            <p><strong>Proveedor (Detectado/Seleccionado):</strong> <span id="proveedor-auto">---</span></p>
             <p><strong>Resultado Crudo:</strong></p>
 
             <!-- Área de Resultado -->
@@ -60,8 +72,9 @@
             </div>
 
             <!-- Sección para Datos GS1 Interpretados -->
-            <div id="gs1-parsed-data" class="gs1-data">
-                <h4>Datos GS1 Interpretados:</h4>
+            <!-- Se añade el ID al div contenedor para poder ocultarlo/mostrarlo -->
+            <div id="gs1-parsed-data" class="gs1-data" style="display: none;">
+                <!-- El título se establecerá dinámicamente -->
                 <div id="gs1-fields">
                     <!-- Los campos se insertarán aquí dinámicamente por JS -->
                 </div>
@@ -96,7 +109,7 @@
 
   <!-- Cargar Librerías ANTES -->
   <script src="libs/html5-qrcode.min.js"></script>
-  <!-- html2canvas es opcional, si no lo usas puedes quitarlo -->
+  <!-- html2canvas es opcional -->
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <!-- Cargar script custom DESPUÉS de librerías -->
   <script src="scanner.js"></script>
