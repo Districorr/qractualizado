@@ -1,3 +1,20 @@
+
+function detectarProveedor(texto) {
+    const proveedores = [
+        { nombre: "BIOPROTECE", patrones: [/bio\s*protece/i, /bioprotece/i] },
+        { nombre: "SAI", patrones: [/\bSAI\b/i, /sistemas avanzados/i] }
+    ];
+    for (const proveedor of proveedores) {
+        for (const patron of proveedor.patrones) {
+            if (patron.test(texto)) {
+                return proveedor.nombre;
+            }
+        }
+    }
+    return "Desconocido";
+}
+
+
 // Element references
 const providerSelect = document.getElementById('provider-select');
 const cameraSelect = document.getElementById('camera-select');
