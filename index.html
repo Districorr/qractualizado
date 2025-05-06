@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Escáner GS1 y Códigos de Barras</title>
   <link rel="stylesheet" href="style.css" />
+  <!-- Opcional: Añadir un favicon -->
+  <!-- <link rel="icon" href="/favicon.ico" type="image/x-icon"> -->
 </head>
 <body>
   <div class="container">
@@ -14,9 +16,7 @@
     <div class="controls">
       <label for="provider-select">Proveedor:</label>
       <select id="provider-select">
-        <!-- Opción por defecto para modo automático/genérico -->
         <option value="" selected>--Automático/Genérico--</option>
-        <!-- Opciones específicas -->
         <option value="bioprotece">BIOPROTECE</option>
         <option value="sai">SAI</option>
       </select>
@@ -41,6 +41,15 @@
     <div id="notification"></div>
 
     <!-- Div donde se renderiza la vista previa del escáner -->
+    <!-- ***** CORRECCIÓN: Añadido selector de cámara aquí ***** -->
+    <div style="margin-bottom: 10px; text-align: center;">
+        <label for="camera-selector" style="margin-right: 5px; display: none;" id="camera-select-label">Cámara:</label> <!-- Label opcional -->
+        <select id="camera-selector" aria-label="Seleccionar cámara a usar" style="display: none;">
+          <!-- Las opciones se añadirán por JS -->
+          <option value="">-- Cambiar Cámara --</option>
+        </select>
+    </div>
+    <!-- ****************************************************** -->
     <div id="reader"></div>
 
     <!-- Contenedor para el resultado crudo y los datos parseados del último escaneo -->
@@ -62,7 +71,6 @@
   </div> <!-- Fin del container -->
 
   <!-- Librerías Externas -->
-  <!-- Asegúrate que estas rutas sean correctas o usa las versiones alojadas -->
   <script src="https://unpkg.com/html5-qrcode"></script> <!-- Para QR y potencialmente Barras 1D -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script> <!-- Para Barras 1D específicamente -->
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script> <!-- Para exportar a XLSX -->
