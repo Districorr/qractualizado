@@ -2,10 +2,13 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Escáner GS1 y Códigos de Barras</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- Opcional: Añadir un favicon -->
+  <!-- PWA - Opcional, pero recomendado si ya los tienes -->
+  <!-- <link rel="manifest" href="manifest.json"> -->
+  <!-- <meta name="theme-color" content="#0077b6"/> -->
+  <!-- <link rel="apple-touch-icon" href="icons/icon-192x192.png"> -->
   <!-- <link rel="icon" href="/favicon.ico" type="image/x-icon"> -->
 </head>
 <body>
@@ -20,44 +23,49 @@
         <option value="bioprotece">BIOPROTECE</option>
         <option value="sai">SAI</option>
       </select>
-      <button id="toggle-scan-mode">Modo QR</button> <!-- El texto inicial es QR -->
+      <button id="toggle-scan-mode">Modo QR</button>
       <button id="export-btn">Exportar CSV</button>
       <button id="export-xlsx-btn">Exportar XLSX</button>
 
-      <!-- Selección de Campos para Exportar -->
       <div class="field-selector">
-        <span>Campos a exportar (CSV/XLSX):</span>
+        <span>Campos a exportar:</span>
         <label><input type="checkbox" value="provider" checked>Proveedor</label>
         <label><input type="checkbox" value="01" checked>GTIN(01)</label>
         <label><input type="checkbox" value="10" checked>Lote(10)</label>
         <label><input type="checkbox" value="17" checked>Vencimiento(17)</label>
         <label><input type="checkbox" value="21" checked>Serie(21)</label>
-        <label><input type="checkbox" value="22" checked>Código(22)</label> <!-- Específico BIOPROTECE -->
-        <label><input type="checkbox" value="240" checked>Referencia(240)</label> <!-- Específico SAI -->
+        <label><input type="checkbox" value="22" checked>Código(22)</label>
+        <label><input type="checkbox" value="240" checked>Referencia(240)</label>
       </div>
     </div>
 
-    <!-- Área de Notificaciones -->
     <div id="notification"></div>
 
-    <!-- Div donde se renderiza la vista previa del escáner -->
-    <!-- ***** CORRECCIÓN: Añadido selector de cámara aquí ***** -->
-    <div style="margin-bottom: 10px; text-align: center;">
-        <label for="camera-selector" style="margin-right: 5px; display: none;" id="camera-select-label">Cámara:</label> <!-- Label opcional -->
-        <select id="camera-selector" aria-label="Seleccionar cámara a usar" style="display: none;">
-          <!-- Las opciones se añadirán por JS -->
-          <option value="">-- Cambiar Cámara --</option>
-        </select>
+    <!-- Contenedor General para Controles de Escaneo -->
+    <div id="scanner-controls" style="text-align: center;">
+        <!-- Botón Principal para Iniciar el Escaneo -->
+        <button id="start-scan-button" class="action-buttons" style="margin: 1em auto; padding: 10px 20px; font-size: 1.1em;">Iniciar Escaneo</button>
+
+        <!-- Contenedor para Controles Activos (inicialmente oculto) -->
+        <div id="scanner-active-controls" style="display: none;">
+            <div style="margin-bottom: 10px;">
+                <label for="camera-selector" style="margin-right: 5px;" id="camera-select-label">Cámara:</label>
+                <select id="camera-selector" aria-label="Seleccionar cámara a usar" style="display: none;">
+                    <option value="">-- Cambiar Cámara --</option>
+                </select>
+                <button id="stop-scan-button" class="action-buttons" style="margin-left: 10px;">Detener</button>
+            </div>
+            <div id="reader"></div> <!-- Aquí se renderiza la vista previa del escáner -->
+            <p id="camera-status" class="camera-error" aria-live="polite"></p>
+        </div>
     </div>
-    <!-- ****************************************************** -->
-    <div id="reader"></div>
+
+    <p id="status" aria-live="polite" style="text-align: center; margin-top: 5px;">Listo para iniciar.</p>
 
     <!-- Contenedor para el resultado crudo y los datos parseados del último escaneo -->
-    <div id="result-container">
+    <div id="result-container" style="margin-top:10px;">
       <textarea id="qr-result" readonly placeholder="Resultado Crudo Aquí..."></textarea>
-      <!-- Div para mostrar los campos parseados del último escaneo -->
       <div id="parsed-data" style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
-          <!-- El contenido aquí se generará dinámicamente por JavaScript -->
           <p>Escanee un código para ver los detalles aquí.</p>
       </div>
     </div>
@@ -65,17 +73,16 @@
     <!-- Contenedor para la tabla de historial -->
     <div id="history-table-container" style="margin-top: 20px;">
       <h2>Historial de Escaneos</h2>
-      <!-- La tabla se insertará aquí por JavaScript -->
       <div id="table-placeholder"><p>El historial de escaneos aparecerá aquí.</p></div>
     </div>
   </div> <!-- Fin del container -->
 
   <!-- Librerías Externas -->
-  <script src="https://unpkg.com/html5-qrcode"></script> <!-- Para QR y potencialmente Barras 1D -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script> <!-- Para Barras 1D específicamente -->
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script> <!-- Para exportar a XLSX -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
-  <!-- Tu Script Personalizado (debe ir después de las librerías) -->
+  <!-- Tu Script Personalizado -->
   <script src="script.js"></script>
 </body>
 </html>
