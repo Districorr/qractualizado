@@ -18,3 +18,30 @@ th, td { border:1px solid #ccc; padding:8px; text-align:left; }
 tr.highlight { animation:highlight 2s ease; }
 @keyframes highlight { from {background:#ffff99;} to {background:transparent;} }
 @media(max-width:600px){ .controls { flex-direction:column; } }
+/* ... (tus estilos anteriores) ... */
+
+#parsed-data h4 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 1em;
+  color: #333;
+}
+#parsed-data p {
+  margin: 2px 0;
+  font-size: 0.95em;
+  word-wrap: break-word; /* Para valores largos */
+}
+#parsed-data p strong {
+  display: inline-block;
+  min-width: 100px; /* Alineación visual */
+  margin-right: 5px;
+  color: #005b99;
+}
+#parsed-data p span.expired {
+  color: red;
+  font-weight: bold;
+}
+
+#history-table-container {
+  margin-top: 20px;
+}
