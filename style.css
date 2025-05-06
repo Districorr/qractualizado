@@ -194,4 +194,58 @@ body.dark #captura-container canvas {
   .section {
     padding: 0.8em;
   }
+/* ... (Estilos anteriores) ... */
+
+/* NUEVO: Estilo para el borde de éxito */
+#scanner-preview.scan-success-border {
+  border: 3px solid #4CAF50; /* Verde éxito */
+  box-shadow: 0 0 10px #4CAF50; /* Opcional: un brillo suave */
+}
+
+/* NUEVO: Contenedor para botones de acción */
+.action-buttons {
+  margin-top: 10px;
+  text-align: center; /* Centrar botones */
+}
+
+.action-buttons button {
+  padding: 8px 15px;
+  margin: 0 5px;
+  cursor: pointer;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background-color: #e7e7e7;
+  transition: background-color 0.2s;
+}
+.action-buttons button:hover {
+  background-color: #ddd;
+}
+body.dark .action-buttons button {
+    background-color: #555;
+    color: #eee;
+    border-color: #777;
+}
+body.dark .action-buttons button:hover {
+    background-color: #666;
+}
+
+/* NUEVO: Contenedor para opciones */
+.options {
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+  font-size: 0.9em;
+  text-align: left; /* Alinear labels a la izquierda */
+}
+body.dark .options {
+    border-top-color: #444;
+}
+.options label {
+  display: block; /* Poner cada label en su línea */
+  margin-bottom: 5px;
+  cursor: pointer;
+}
+.options input[type="checkbox"] {
+  margin-right: 5px;
+  vertical-align: middle; /* Alinear checkbox con texto */
 }
